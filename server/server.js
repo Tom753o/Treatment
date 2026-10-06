@@ -9,6 +9,27 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const OPENAI_URL = "https://api.openai.com";
 const OPENAI_TOKEN = process.env.OPENAI_API_KEY;
 
+// Zeitlimit fuer den Chat in Minuten (0 = kein Limit).
+const CHAT_TIME_LIMIT_MINUTES = Number(process.env.CHAT_TIME_LIMIT_MINUTES ?? 10);
+// Ab wann laeuft die Zeit? "first_message" (Standard) = ab der ersten Nachricht,
+// "session" = ab dem Laden der Chat-Seite.
+const CHAT_TIMER_START = process.env.CHAT_TIMER_START === "session" ? "session" : "first_message";
+
+// Liefert den Zeitpunkt (ms), ab dem keine Nachrichten mehr moeglich sind,
+// oder null, wenn (noch) kein Limit laeuft.
+function getDeadline(session) {
+  if (!CHAT_TIME_LIMIT_MINUTES || CHAT_TIME_LIMIT_MINUTES <= 0) return null;
+  let start;
+  if (CHAT_TIMER_START === "session") {
+    start = session.started_at;
+  } else {
+    const first = db.getMessages(session.id).find((m) => m.role === "user");
+    if (!first) return null;
+    start = first.created_at;
+  }
+  return new Date(start).getTime() + CHAT_TIME_LIMIT_MINUTES * 60 * 1000;
+}
+
 const SYSTEM_PROMPT =
   process.env.CHAT_SYSTEM_PROMPT ||
   "Du bist ein hilfreicher Assistent im Rahmen einer wissenschaftlichen Studie. Antworte klar, freundlich und auf Deutsch, sofern die Teilnehmerin oder der Teilnehmer nicht in einer anderen Sprache schreibt.";
@@ -29,6 +50,7 @@ if (!ADMIN_KEY) {
 console.log("Admin export key:", ADMIN_KEY);
 
 const app = express();
+
 // Allow the app to be called from inside a SoSci Survey iframe. SoSci's
 // preview/embedding can load this page in a way the browser treats as
 // cross-origin, so without these headers the browser blocks the API calls.
@@ -38,7 +60,8 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
-})
+});
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
@@ -58,8 +81,15 @@ app.post("/api/session", (req, res) => {
       120
     ) || null;
   const id = crypto.randomUUID();
-  db.createSession(id, participantId);
-  res.status(201).json({ sessionId: id });
+  const session = db.createSession(id, participantId);
+  const deadline = getDeadline(session);
+  res.status(201).json({
+    sessionId: id,
+    timeLimitMinutes: CHAT_TIME_LIMIT_MINUTES,
+    timerStart: CHAT_TIMER_START,
+    deadline: deadline ? new Date(deadline).toISOString() : null,
+    serverNow: new Date().toISOString(),
+  });
 });
 
 app.get("/api/session/:id", (req, res) => {
@@ -77,6 +107,12 @@ app.post("/api/session/:id/message", async (req, res) => {
   const content = (req.body && req.body.content ? String(req.body.content) : "").trim();
   if (!content) return res.status(400).json({ error: "empty_message" });
   if (content.length > 4000) return res.status(400).json({ error: "message_too_long" });
+
+  // Zeitlimit serverseitig durchsetzen (kann vom Browser nicht umgangen werden).
+  const existingDeadline = getDeadline(session);
+  if (existingDeadline && Date.now() > existingDeadline) {
+    return res.status(403).json({ error: "time_up" });
+  }
 
   if (!OPENAI_URL || !OPENAI_TOKEN) {
     return res.status(500).json({ error: "openai_not_configured" });
@@ -114,7 +150,12 @@ app.post("/api/session/:id/message", async (req, res) => {
     if (!reply) return res.status(502).json({ error: "openai_empty_reply" });
 
     db.addMessage(session.id, "assistant", reply);
-    res.json({ reply });
+    const deadline = getDeadline(session);
+    res.json({
+      reply,
+      deadline: deadline ? new Date(deadline).toISOString() : null,
+      serverNow: new Date().toISOString(),
+    });
   } catch (err) {
     console.error("OpenAI request failed", err);
     res.status(502).json({ error: "openai_request_failed" });

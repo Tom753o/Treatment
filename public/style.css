@@ -321,3 +321,21 @@ button { cursor: pointer; background: none; border: none; }
   display: flex; align-items: center; justify-content: center;
   color: var(--color-text);
 }
+
+/* Countdown im Chat-Kopf */
+.chat-timer {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--text-sm, 0.875rem);
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: var(--color-surface-2, #f0eee9);
+  color: var(--color-text, #28251d);
+  white-space: nowrap;
+}
+.chat-timer[hidden] { display: none; }
+.chat-timer.warning {
+  background: #f6e2e2;
+  color: #a12c2c;
+}

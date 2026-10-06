@@ -12,6 +12,10 @@ services:
         value: gpt-4o-mini
       - key: ADMIN_KEY
         sync: false
+      - key: CHAT_TIME_LIMIT_MINUTES
+        value: "10"
+      - key: CHAT_TIMER_START
+        value: first_message
       - key: DB_PATH
         value: /data/data.db
     disk:

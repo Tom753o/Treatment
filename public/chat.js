@@ -16,6 +16,66 @@
   let sessionId = null;
   let busy = false;
   let finished = false;
+  let deadlineMs = null;      // Zeitpunkt in lokaler Uhrzeit (ms)
+  let timerInterval = null;
+  let timeLimitMinutes = 0;
+  const timerEl = document.getElementById("chat-timer");
+
+  function formatTime(ms) {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m + ":" + String(s).padStart(2, "0");
+  }
+
+  // Server-Zeitangaben auf die lokale Uhr umrechnen (falls die Uhr des
+  // Teilnehmer-Geraets falsch geht).
+  function setDeadline(deadlineIso, serverNowIso) {
+    if (!deadlineIso) return;
+    const offset = serverNowIso ? Date.now() - new Date(serverNowIso).getTime() : 0;
+    deadlineMs = new Date(deadlineIso).getTime() + offset;
+    if (!timerInterval) {
+      timerInterval = setInterval(tick, 500);
+    }
+    tick();
+  }
+
+  function tick() {
+    if (!timerEl || finished) return;
+    if (deadlineMs === null) {
+      timerEl.textContent = formatTime(timeLimitMinutes * 60 * 1000);
+      return;
+    }
+    const left = deadlineMs - Date.now();
+    timerEl.textContent = formatTime(left);
+    timerEl.classList.toggle("warning", left <= 60 * 1000);
+    if (left <= 0) {
+      clearInterval(timerInterval);
+      timeUp();
+    }
+  }
+
+  async function timeUp() {
+    if (finished) return;
+    addMessage("system-note", "Die Zeit für den Chat ist abgelaufen.");
+    finished = true;
+    sendBtn.disabled = true;
+    chatInput.disabled = true;
+    // Kurz warten, falls gerade noch eine Antwort unterwegs ist
+    const waitForIdle = () => new Promise((r) => {
+      const check = () => (busy ? setTimeout(check, 300) : r());
+      check();
+    });
+    await waitForIdle();
+    try {
+      const res = await fetch(`${API}/api/session/${sessionId}/finish`, { method: "POST" });
+      const data = await res.json();
+      setTimeout(() => showFinishScreen(data.code, true), 1500);
+    } catch (err) {
+      addMessage("error", "Bitte klicken Sie auf „Chat beenden“, um Ihren Code zu erhalten.");
+      finishBtn.disabled = false;
+    }
+  }
 
   function scrollToBottom() {
     chatLog.scrollTop = chatLog.scrollHeight;
@@ -55,6 +115,12 @@
       });
       const data = await res.json();
       sessionId = data.sessionId;
+      timeLimitMinutes = data.timeLimitMinutes || 0;
+      if (timeLimitMinutes > 0 && timerEl) {
+        timerEl.hidden = false;
+        tick();
+        setDeadline(data.deadline, data.serverNow);
+      }
     } catch (err) {
       addMessage("error", "Verbindung zum Server fehlgeschlagen. Bitte laden Sie die Seite neu.");
     }
@@ -62,6 +128,12 @@
 
   async function sendMessage(text) {
     addMessage("user", text);
+    // Countdown sofort mit der ersten Nachricht starten (der Server sendet
+    // danach die exakte Endzeit, die diese Schaetzung ersetzt).
+    if (deadlineMs === null && timeLimitMinutes > 0) {
+      deadlineMs = Date.now() + timeLimitMinutes * 60 * 1000;
+      if (!timerInterval) timerInterval = setInterval(tick, 500);
+    }
     setBusy(true);
     const typingEl = addTyping();
 
@@ -73,6 +145,11 @@
       });
       typingEl.remove();
 
+      if (res.status === 403) {
+        setBusy(false);
+        timeUp();
+        return;
+      }
       if (!res.ok) {
         addMessage("error", "Die Antwort konnte nicht abgerufen werden. Bitte versuchen Sie es erneut.");
         setBusy(false);
@@ -80,6 +157,7 @@
       }
       const data = await res.json();
       addMessage("assistant", data.reply);
+      setDeadline(data.deadline, data.serverNow);
     } catch (err) {
       typingEl.remove();
       addMessage("error", "Verbindungsfehler. Bitte versuchen Sie es erneut.");
@@ -91,6 +169,7 @@
   chatForm.addEventListener("submit", (e) => {
     e.preventDefault();
     if (busy || finished) return;
+    if (deadlineMs !== null && Date.now() > deadlineMs) return timeUp();
     const text = chatInput.value.trim();
     if (!text || !sessionId) return;
     chatInput.value = "";
@@ -125,11 +204,12 @@
     }
   });
 
-  function showFinishScreen(code) {
+  function showFinishScreen(code, timeIsUp) {
     finished = true;
+    if (timerInterval) clearInterval(timerInterval);
     chatCard.innerHTML = `
       <div class="finish-screen">
-        <h2>Chat abgeschlossen</h2>
+        <h2>${timeIsUp ? "Die Zeit ist abgelaufen" : "Chat abgeschlossen"}</h2>
         <p>Bitte kopieren Sie den folgenden Code und fügen Sie ihn im nächsten Schritt der Umfrage ein.</p>
         <div class="code-box" data-testid="text-completion-code">${code}</div>
         <button type="button" class="btn btn-primary" id="copy-btn" data-testid="button-copy-code">Code kopieren</button>

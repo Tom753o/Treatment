@@ -105,6 +105,27 @@ Nutzen Sie dieselbe Vorgehensweise wie in der separaten SoSci-Anleitung, nur mit
 
 ---
 
+## Zeitlimit (Standard: 10 Minuten)
+
+Der Chat hat ein eingebautes Zeitlimit, das **auf dem Server** durchgesetzt wird – Teilnehmende können es also nicht durch Neuladen der Seite oder Browser-Tricks umgehen.
+
+- Oben rechts im Chat läuft ein sichtbarer Countdown (in der letzten Minute rot).
+- Nach Ablauf nimmt der Server keine Nachrichten mehr an und ruft die OpenAI-API nicht mehr auf.
+- Der Chat wird automatisch beendet und der Abschlusscode angezeigt.
+- Eine Antwort, die kurz vor Ablauf angefragt wurde, wird noch zugestellt.
+
+Einstellen in Render unter **Environment**:
+
+| Variable | Wert | Bedeutung |
+|---|---|---|
+| `CHAT_TIME_LIMIT_MINUTES` | `10` | Dauer in Minuten (`0` = kein Limit, auch Dezimalwerte wie `2.5` möglich) |
+| `CHAT_TIMER_START` | `first_message` | Zeit läuft ab der ersten Nachricht (Lesen der Instruktion zählt nicht mit) |
+| `CHAT_TIMER_START` | `session` | Zeit läuft ab dem Laden der Chat-Seite |
+
+Nach dem Ändern einer Variable startet Render den Dienst automatisch neu.
+
+---
+
 ## Kosten & Sicherheit
 
 - **Render:** Der Starter-Plan ist ein Fixpreis pro Monat, unabhängig von der Zahl der Teilnehmenden.
