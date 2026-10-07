@@ -68,12 +68,20 @@ function buildSystemPrompt() {
 
   const quellenDir = path.join(dir, "quellen");
   const files = fs.existsSync(quellenDir)
-    ? fs.readdirSync(quellenDir).filter((f) => /\.(md|txt)$/i.test(f)).sort()
+    ? fs
+        .readdirSync(quellenDir, { withFileTypes: true })
+        // Alle normalen Textdateien, mit oder ohne Endung (.md, .txt, keine).
+        // Versteckte Dateien und typische Nicht-Text-Formate werden ignoriert.
+        .filter((d) => d.isFile() && !d.name.startsWith("."))
+        .map((d) => d.name)
+        .filter((f) => !/\.(pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|zip)$/i.test(f))
+        .sort((a, b) => a.localeCompare(b, "de"))
     : [];
   if (files.length) {
     const blocks = files.map((f, i) => {
       const text = fs.readFileSync(path.join(quellenDir, f), "utf8").trim();
-      return `<quelle nr="${i + 1}" datei="${f}">\n${text}\n</quelle>`;
+      const titel = f.replace(/\.(md|txt)$/i, "");
+      return `<quelle nr="${i + 1}" titel="${titel}">\n${text}\n</quelle>`;
     });
     prompt +=
       "\n\n# Quellen\n" +
