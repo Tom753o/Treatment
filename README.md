@@ -126,6 +126,34 @@ Nach dem Ändern einer Variable startet Render den Dienst automatisch neu.
 
 ---
 
+## Zurück-Knopf: Chat wieder anzeigen
+
+Wird der iframe mit einem zusätzlichen Parameter `t` (Wiederaufnahme-Token) geladen, zeigt die App beim erneuten Aufruf denselben Chat mit vollständigem Verlauf an, statt einen neuen zu starten.
+
+- Noch nicht beendet und Zeit übrig: Teilnehmende können weiterschreiben, der Timer läuft dabei weiter (er wird nicht zurückgesetzt).
+- Bereits beendet: Verlauf und Abschlusscode werden nur angezeigt, keine neuen Nachrichten.
+- Ohne `t` verhält sich die App wie bisher (jeder Aufruf = neuer Chat).
+
+SoSci-Code (PHP-Code-Baustein **über** dem iframe auf jeder Chat-Seite):
+
+```php
+if (!isset($chatToken)) {
+  $chatToken = 'T' . mt_rand(100000000, 999999999) . mt_rand(100000000, 999999999);
+  registerVariable($chatToken);
+}
+replace('%chattoken%', $chatToken);
+```
+
+iframe-URL:
+
+```
+https://<ihre-render-url>.onrender.com/index.html?pid=%caseNumber%&t=%chattoken%
+```
+
+Der Token ist zufällig und nicht erratbar – anders als die fortlaufende Fallnummer. Deshalb wird er (und nicht `pid`) zum Wiederfinden des Chats verwendet, damit niemand durch Ausprobieren von Fallnummern fremde Chats lesen kann.
+
+---
+
 ## Kosten & Sicherheit
 
 - **Render:** Der Starter-Plan ist ein Fixpreis pro Monat, unabhängig von der Zahl der Teilnehmenden.

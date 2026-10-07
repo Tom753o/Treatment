@@ -26,11 +26,22 @@ db.exec(`
   );
 `);
 
-function createSession(id, participantId) {
+// Migration fuer bestehende Datenbanken: Spalte fuer den Wiederaufnahme-Token.
+const cols = db.prepare("PRAGMA table_info(sessions)").all().map((c) => c.name);
+if (!cols.includes("resume_token")) {
+  db.exec("ALTER TABLE sessions ADD COLUMN resume_token TEXT");
+}
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_resume_token ON sessions(resume_token)");
+
+function createSession(id, participantId, resumeToken) {
   db.prepare(
-    "INSERT INTO sessions (id, participant_id, started_at) VALUES (?, ?, ?)"
-  ).run(id, participantId || null, new Date().toISOString());
+    "INSERT INTO sessions (id, participant_id, started_at, resume_token) VALUES (?, ?, ?, ?)"
+  ).run(id, participantId || null, new Date().toISOString(), resumeToken || null);
   return getSession(id);
+}
+
+function getSessionByResumeToken(token) {
+  return db.prepare("SELECT * FROM sessions WHERE resume_token = ?").get(token);
 }
 
 function getSession(id) {
@@ -86,6 +97,7 @@ function getAllRowsForExport() {
 module.exports = {
   createSession,
   getSession,
+  getSessionByResumeToken,
   finishSession,
   addMessage,
   getMessages,

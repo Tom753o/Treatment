@@ -5,6 +5,9 @@
 
   const params = new URLSearchParams(window.location.search);
   const participantId = params.get("pid") || params.get("participant") || null;
+  // Wiederaufnahme-Token aus SoSci (?t=...). Ermoeglicht es, nach dem
+  // Zurueck-Knopf denselben Chat wieder anzuzeigen.
+  const resumeToken = params.get("t") || null;
 
   const chatLog = document.getElementById("chat-log");
   const chatForm = document.getElementById("chat-form");
@@ -111,10 +114,21 @@
       const res = await fetch(`${API}/api/session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantId }),
+        body: JSON.stringify({ participantId, resumeToken }),
       });
       const data = await res.json();
       sessionId = data.sessionId;
+
+      // Bisherigen Verlauf wiederherstellen
+      if (data.resumed && data.messages && data.messages.length) {
+        const note = chatLog.querySelector(".system-note");
+        if (note) note.remove();
+        data.messages.forEach((m) => addMessage(m.role, m.content));
+      }
+      if (data.finished) {
+        showFinishScreen(data.completionCode, false);
+        return;
+      }
       timeLimitMinutes = data.timeLimitMinutes || 0;
       if (timeLimitMinutes > 0 && timerEl) {
         timerEl.hidden = false;
@@ -207,17 +221,25 @@
   function showFinishScreen(code, timeIsUp) {
     finished = true;
     if (timerInterval) clearInterval(timerInterval);
-    chatCard.innerHTML = `
-      <div class="finish-screen">
-        <h2>${timeIsUp ? "Die Zeit ist abgelaufen" : "Chat abgeschlossen"}</h2>
-        <p>Bitte kopieren Sie den folgenden Code und fügen Sie ihn im nächsten Schritt der Umfrage ein.</p>
-        <div class="code-box" data-testid="text-completion-code">${code}</div>
-        <button type="button" class="btn btn-primary" id="copy-btn" data-testid="button-copy-code">Code kopieren</button>
-        <p class="copy-hint" id="copy-hint" aria-live="polite"></p>
-      </div>
+    if (timerEl) timerEl.hidden = true;
+    // Verlauf bleibt sichtbar; Eingabezeile und Fusszeile werden durch
+    // den Abschlussbereich ersetzt.
+    chatForm.remove();
+    const footer = chatCard.querySelector(".chat-footer");
+    if (footer) footer.remove();
+    const panel = document.createElement("div");
+    panel.className = "finish-screen";
+    panel.innerHTML = `
+      <h2>${timeIsUp ? "Die Zeit ist abgelaufen" : "Chat abgeschlossen"}</h2>
+      <p>Bitte kopieren Sie den folgenden Code und fügen Sie ihn im nächsten Schritt der Umfrage ein.</p>
+      <div class="code-box" data-testid="text-completion-code"></div>
+      <button type="button" class="btn btn-primary" id="copy-btn" data-testid="button-copy-code">Code kopieren</button>
+      <p class="copy-hint" id="copy-hint" aria-live="polite"></p>
     `;
-    const copyBtn = document.getElementById("copy-btn");
-    const copyHint = document.getElementById("copy-hint");
+    panel.querySelector(".code-box").textContent = code || "";
+    chatCard.appendChild(panel);
+    const copyBtn = panel.querySelector("#copy-btn");
+    const copyHint = panel.querySelector("#copy-hint");
     copyBtn.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(code);

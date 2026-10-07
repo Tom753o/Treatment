@@ -339,3 +339,10 @@ button { cursor: pointer; background: none; border: none; }
   background: #f6e2e2;
   color: #a12c2c;
 }
+
+/* Abschlussbereich unter dem (weiterhin sichtbaren) Verlauf */
+.chat-card > .finish-screen {
+  border-top: 1px solid var(--color-divider);
+  padding: var(--space-5);
+  gap: var(--space-3);
+}

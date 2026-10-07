@@ -6,7 +6,7 @@ const db = require("./db");
 
 const PORT = process.env.PORT || 8000;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const OPENAI_URL = "https://api.openai.com";
+const OPENAI_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com";
 const OPENAI_TOKEN = process.env.OPENAI_API_KEY;
 
 // Zeitlimit fuer den Chat in Minuten (0 = kein Limit).
@@ -80,11 +80,28 @@ app.post("/api/session", (req, res) => {
       0,
       120
     ) || null;
-  const id = crypto.randomUUID();
-  const session = db.createSession(id, participantId);
+
+  // Optionaler Wiederaufnahme-Token (aus SoSci per URL-Parameter ?t=...).
+  // Kommt derselbe Token erneut (z. B. nach dem Zurueck-Knopf), wird die
+  // bestehende Sitzung samt Verlauf zurueckgegeben statt einer neuen.
+  const rawToken = req.body && req.body.resumeToken ? String(req.body.resumeToken) : "";
+  const resumeToken = /^[A-Za-z0-9_-]{12,128}$/.test(rawToken) ? rawToken : null;
+
+  let session = resumeToken ? db.getSessionByResumeToken(resumeToken) : null;
+  let resumed = !!session;
+  if (!session) {
+    session = db.createSession(crypto.randomUUID(), participantId, resumeToken);
+  }
+
   const deadline = getDeadline(session);
-  res.status(201).json({
-    sessionId: id,
+  res.status(resumed ? 200 : 201).json({
+    sessionId: session.id,
+    resumed,
+    messages: resumed
+      ? db.getMessages(session.id).map((m) => ({ role: m.role, content: m.content }))
+      : [],
+    finished: !!session.finished_at,
+    completionCode: session.finished_at ? session.completion_code : null,
     timeLimitMinutes: CHAT_TIME_LIMIT_MINUTES,
     timerStart: CHAT_TIMER_START,
     deadline: deadline ? new Date(deadline).toISOString() : null,
@@ -96,7 +113,8 @@ app.get("/api/session/:id", (req, res) => {
   const session = db.getSession(req.params.id);
   if (!session) return res.status(404).json({ error: "not_found" });
   const messages = db.getMessages(req.params.id);
-  res.json({ session, messages });
+  const { resume_token, ...publicSession } = session;
+  res.json({ session: publicSession, messages });
 });
 
 app.post("/api/session/:id/message", async (req, res) => {
