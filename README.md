@@ -1,4 +1,17 @@
-# GPT-Chat für Online-Umfragen – Selbst-Hosting-Anleitung
+# GPT-Chat für Online-Umfragen – Treatment-Gruppe (`treatment`)
+
+Dieses Repository enthält ausschließlich die **Treatment-Gruppe**. Die andere Bedingung liegt in einem eigenen Repository mit eigenem Render-Service.
+
+| | |
+|---|---|
+| Bedingung | `treatment` |
+| Render-URL | https://gpt-survey-chat-ll60.onrender.com |
+| Adminseite | https://gpt-survey-chat-ll60.onrender.com/admin.html |
+| SoSci-Seite | `chatB` (Zufallsgenerator-Wert 2) |
+
+---
+
+## Überblick
 
 Diese App ist ein kleiner Node.js/Express-Server mit SQLite-Datenbank, der einen Chat mit einem OpenAI-Modell bereitstellt (für die Einbindung als iframe in z. B. SoSci Survey). Diese Anleitung zeigt, wie Sie sie **selbst über GitHub + Render hosten**, statt sie über Perplexity zu betreiben.
 
@@ -66,7 +79,7 @@ Die `.gitignore`-Datei sorgt dafür, dass `node_modules/`, die Datenbank und Ihr
 4. Unter **Disks** einen Disk hinzufügen: Mount-Pfad `/data`, Größe 1 GB.
 5. **Create Web Service** klicken.
 
-Nach dem ersten Deploy erhalten Sie eine URL wie `https://gpt-survey-chat-xxxx.onrender.com`.
+Nach dem ersten Deploy erhalten Sie eine URL wie `https://gpt-survey-chat-ll60.onrender.com`.
 
 ---
 
@@ -83,10 +96,10 @@ Der **kostenlose Free-Plan** eignet sich nur zum Testen: Der Dienst schläft nac
 
 ## Schritt 3: Testen
 
-1. `https://<ihre-render-url>.onrender.com/index.html?pid=TEST123` im Browser öffnen.
+1. `https://gpt-survey-chat-ll60.onrender.com/index.html?pid=TEST123` im Browser öffnen.
 2. Eine Nachricht schreiben, Antwort von GPT prüfen.
 3. „Chat beenden“ klicken, Code kopieren.
-4. `https://<ihre-render-url>.onrender.com/admin.html` öffnen, den `ADMIN_KEY`-Wert eingeben, CSV-Export prüfen.
+4. `https://gpt-survey-chat-ll60.onrender.com/admin.html` öffnen, den `ADMIN_KEY`-Wert eingeben, CSV-Export prüfen.
 
 ---
 
@@ -96,7 +109,7 @@ Nutzen Sie dieselbe Vorgehensweise wie in der separaten SoSci-Anleitung, nur mit
 
 ```html
 <iframe
-  src="https://<ihre-render-url>.onrender.com/index.html?pid=%caseNumber%"
+  src="https://gpt-survey-chat-ll60.onrender.com/index.html?pid=%caseNumber%"
   width="100%"
   style="aspect-ratio: 0.78; border:none; min-height: 620px;"
   title="Chat-Aufgabe">
@@ -147,10 +160,30 @@ replace('%chattoken%', $chatToken);
 iframe-URL:
 
 ```
-https://<ihre-render-url>.onrender.com/index.html?pid=%caseNumber%&t=%chattoken%
+https://gpt-survey-chat-ll60.onrender.com/index.html?pid=%caseNumber%&t=%chattoken%
 ```
 
 Der Token ist zufällig und nicht erratbar – anders als die fortlaufende Fallnummer. Deshalb wird er (und nicht `pid`) zum Wiederfinden des Chats verwendet, damit niemand durch Ausprobieren von Fallnummern fremde Chats lesen kann.
+
+---
+
+## Prompt und Quellen
+
+```
+bedingungen/
+  treatment/
+    prompt.md              <- Systemprompt dieser Bedingung
+    quellen/
+      01-beispielquelle.md <- eine Datei pro Quelle (.md oder .txt)
+```
+
+- Prompt ändern: auf GitHub `bedingungen/treatment/prompt.md` öffnen → Stift („Edit this file“) → Text ändern → **Commit changes**.
+- Quellen: eine Datei pro Quelle im Ordner `bedingungen/treatment/quellen/` (`.md` oder `.txt`). Sie werden alphabetisch sortiert und als Quelle 1, 2, … an den Prompt angehängt – Dateinamen daher mit 01-, 02-, … beginnen. Die Beispielquelle vor dem Start löschen.
+- Die Bedingung wird automatisch erkannt (es gibt nur den Ordner `treatment`). Eine Variable `BEDINGUNG=treatment` bei Render ist optional, schadet aber nicht.
+- Nach jeder Änderung deployt Render automatisch neu; der neue Prompt gilt ab dann.
+- Aktiven Prompt prüfen: `https://gpt-survey-chat-ll60.onrender.com/api/admin/prompt?key=<ADMIN_KEY>`
+- In den Render-Logs steht beim Start ein Prompt-Hash. Ändert er sich, hat sich der Prompt geändert.
+- Quellen werden bei jeder Nachricht mitgeschickt – lange Quellen erhöhen die Kosten pro Nachricht.
 
 ---
 
