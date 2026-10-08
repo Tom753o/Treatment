@@ -92,6 +92,26 @@ function buildSystemPrompt() {
 }
 
 const SYSTEM_PROMPT = buildSystemPrompt();
+
+// Optionale Begruessungsnachricht: bedingungen/<name>/begruessung.md
+// (Alternativ per Umgebungsvariable CHAT_GREETING.) Sie erscheint als erste
+// Nachricht des Assistenten, bevor die Person etwas schreibt, wird im Export
+// gespeichert und ist Teil des Verlaufs, den das Modell sieht.
+function loadGreeting() {
+  if (BEDINGUNG && /^[A-Za-z0-9_-]+$/.test(BEDINGUNG)) {
+    const dir = path.join(__dirname, "..", "bedingungen", BEDINGUNG);
+    for (const name of ["begruessung.md", "begruessung.txt", "begruessung"]) {
+      const f = path.join(dir, name);
+      if (fs.existsSync(f)) {
+        const text = fs.readFileSync(f, "utf8").trim();
+        if (text) return text;
+      }
+    }
+  }
+  return (process.env.CHAT_GREETING || "").trim();
+}
+const GREETING = loadGreeting();
+console.log(`Begruessung: ${GREETING ? GREETING.length + " Zeichen" : "(keine)"}`);
 console.log(
   `Bedingung: ${BEDINGUNG || "(keine, Standardprompt)"} | Prompt-Laenge: ${SYSTEM_PROMPT.length} Zeichen | ` +
     `Prompt-Hash: ${crypto.createHash("sha256").update(SYSTEM_PROMPT).digest("hex").slice(0, 12)}`
@@ -154,15 +174,14 @@ app.post("/api/session", (req, res) => {
   let resumed = !!session;
   if (!session) {
     session = db.createSession(crypto.randomUUID(), participantId, resumeToken);
+    if (GREETING) db.addMessage(session.id, "assistant", GREETING);
   }
 
   const deadline = getDeadline(session);
   res.status(resumed ? 200 : 201).json({
     sessionId: session.id,
     resumed,
-    messages: resumed
-      ? db.getMessages(session.id).map((m) => ({ role: m.role, content: m.content }))
-      : [],
+    messages: db.getMessages(session.id).map((m) => ({ role: m.role, content: m.content })),
     finished: !!session.finished_at,
     completionCode: session.finished_at ? session.completion_code : null,
     timeLimitMinutes: CHAT_TIME_LIMIT_MINUTES,
@@ -230,97 +249,4 @@ app.post("/api/session/:id/message", async (req, res) => {
     const reply = data?.choices?.[0]?.message?.content?.trim();
     if (!reply) return res.status(502).json({ error: "openai_empty_reply" });
 
-    db.addMessage(session.id, "assistant", reply);
-    const deadline = getDeadline(session);
-    res.json({
-      reply,
-      deadline: deadline ? new Date(deadline).toISOString() : null,
-      serverNow: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error("OpenAI request failed", err);
-    res.status(502).json({ error: "openai_request_failed" });
-  }
-});
-
-app.post("/api/session/:id/finish", (req, res) => {
-  const session = db.getSession(req.params.id);
-  if (!session) return res.status(404).json({ error: "not_found" });
-  if (session.finished_at) {
-    return res.json({ code: session.completion_code });
-  }
-  const code = generateCode();
-  db.finishSession(session.id, code);
-  res.json({ code });
-});
-
-app.post("/api/admin/reset", (req, res) => {
-  if (!ADMIN_KEY || req.query.key !== ADMIN_KEY) {
-    return res.status(403).send("Forbidden");
-  }
-  db.clearAllData();
-  res.json({ ok: true });
-});
-
-function csvEscape(value) {
-  if (value === null || value === undefined) return "";
-  let str = String(value);
-  // Neutralize CSV formula injection: if a field starts with a character
-  // that spreadsheet apps interpret as a formula trigger, prefix it with
-  // a single quote so it's treated as plain text on open.
-  if (/^[=+\-@]/.test(str)) {
-    str = "'" + str;
-  }
-  if (/[",\n]/.test(str)) {
-    return '"' + str.replace(/"/g, '""') + '"';
-  }
-  return str;
-}
-
-app.get("/api/export", (req, res) => {
-  if (!ADMIN_KEY || req.query.key !== ADMIN_KEY) {
-    return res.status(403).send("Forbidden");
-  }
-  const rows = db.getAllRowsForExport();
-  const header = [
-    "session_id",
-    "participant_id",
-    "started_at",
-    "finished_at",
-    "completion_code",
-    "message_index",
-    "role",
-    "content",
-    "message_created_at",
-  ];
-  const lines = [header.join(",")];
-  for (const r of rows) {
-    lines.push(
-      header.map((h) => csvEscape(r[h])).join(",")
-    );
-  }
-  const csv = lines.join("\n");
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="chat_export_${Date.now()}.csv"`
-  );
-  res.send(csv);
-});
-
-// Aktiven Systemprompt (inkl. Quellen) anzeigen, zur Kontrolle.
-app.get("/api/admin/prompt", (req, res) => {
-  if (!ADMIN_KEY || req.query.key !== ADMIN_KEY) {
-    return res.status(403).send("Forbidden");
-  }
-  res.setHeader("Content-Type", "text/plain; charset=utf-8");
-  res.send(`Bedingung: ${BEDINGUNG || "(keine)"}\nModell: ${OPENAI_MODEL}\n\n${SYSTEM_PROMPT}`);
-});
-
-app.get("/api/admin/check", (req, res) => {
-  res.json({ ok: req.query.key === ADMIN_KEY });
-});
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+    db.add
