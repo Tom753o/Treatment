@@ -119,8 +119,8 @@
       const data = await res.json();
       sessionId = data.sessionId;
 
-      // Bisherigen Verlauf wiederherstellen
-      if (data.resumed && data.messages && data.messages.length) {
+      // Begruessung bzw. bisherigen Verlauf anzeigen
+      if (data.messages && data.messages.length) {
         const note = chatLog.querySelector(".system-note");
         if (note) note.remove();
         data.messages.forEach((m) => addMessage(m.role, m.content));
