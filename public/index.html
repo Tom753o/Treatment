@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://api.fontshare.com" />
+  <link
+    href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap"
+    rel="stylesheet"
+  />
+</head>
+<body>
+  <div class="chat-shell">
+    <div class="chat-card" id="chat-card">
+      <div class="chat-header">
+        <span class="dot" aria-hidden="true"></span>
+        <div>
+          <h1>Chat-Aufgabe</h1>
+          <p>Ihre Nachrichten werden für diese Studie aufgezeichnet.</p>
+        </div>
+        <div class="chat-timer" id="chat-timer" hidden aria-label="Verbleibende Zeit" title="Verbleibende Zeit" data-testid="text-timer">10:00</div>
+      </div>
+
+      <div class="chat-log" id="chat-log" role="log" aria-live="polite">
+        <div class="msg system-note">Schreiben Sie unten Ihre erste Nachricht, um den Chat zu beginnen.</div>
+      </div>
+
+      <form class="chat-input-row" id="chat-form">
+        <label class="sr-only" for="chat-input">Nachricht</label>
+        <textarea
+          id="chat-input"
+          rows="1"
+          placeholder="Nachricht eingeben…"
+          data-testid="input-chat-message"
+        ></textarea>
+        <button type="submit" class="btn btn-primary" id="send-btn" data-testid="button-send">Senden</button>
+      </form>
+
+      <div class="chat-footer">
+        <button type="button" class="btn btn-ghost" id="finish-btn" data-testid="button-finish">Chat beenden</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="chat.js"></script>
+</body>
+</html>
