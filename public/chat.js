@@ -233,6 +233,5 @@
     `;
     chatCard.appendChild(panel);
   }
-
   initSession();
 })();
