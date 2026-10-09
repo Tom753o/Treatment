@@ -75,7 +75,7 @@
       const data = await res.json();
       setTimeout(() => showFinishScreen(data.code, true), 1500);
     } catch (err) {
-      addMessage("error", "Bitte klicken Sie auf „Chat beenden“, um Ihren Code zu erhalten.");
+      addMessage("error", "Bitte klicken Sie auf „End Chat“, um Ihren Code zu erhalten.");
       finishBtn.disabled = false;
     }
   }
@@ -136,7 +136,7 @@
         setDeadline(data.deadline, data.serverNow);
       }
     } catch (err) {
-      addMessage("error", "Verbindung zum Server fehlgeschlagen. Bitte laden Sie die Seite neu.");
+      addMessage("error", "Connection to the server failed. Please reload the page.");
     }
   }
 
@@ -165,7 +165,7 @@
         return;
       }
       if (!res.ok) {
-        addMessage("error", "Die Antwort konnte nicht abgerufen werden. Bitte versuchen Sie es erneut.");
+        addMessage("error", "The response could not be retrieved. Please try again.");
         setBusy(false);
         return;
       }
@@ -174,7 +174,7 @@
       setDeadline(data.deadline, data.serverNow);
     } catch (err) {
       typingEl.remove();
-      addMessage("error", "Verbindungsfehler. Bitte versuchen Sie es erneut.");
+      addMessage("error", "Connection error. Please try again.");
     }
     setBusy(false);
     chatInput.focus();
@@ -222,32 +222,16 @@
     finished = true;
     if (timerInterval) clearInterval(timerInterval);
     if (timerEl) timerEl.hidden = true;
-    // Verlauf bleibt sichtbar; Eingabezeile und Fusszeile werden durch
-    // den Abschlussbereich ersetzt.
     chatForm.remove();
     const footer = chatCard.querySelector(".chat-footer");
     if (footer) footer.remove();
     const panel = document.createElement("div");
     panel.className = "finish-screen";
     panel.innerHTML = `
-      <h2>${timeIsUp ? "Die Zeit ist abgelaufen" : "Chat abgeschlossen"}</h2>
-      <p>Bitte kopieren Sie den folgenden Code und fügen Sie ihn im nächsten Schritt der Umfrage ein.</p>
-      <div class="code-box" data-testid="text-completion-code"></div>
-      <button type="button" class="btn btn-primary" id="copy-btn" data-testid="button-copy-code">Code kopieren</button>
-      <p class="copy-hint" id="copy-hint" aria-live="polite"></p>
+      <h2>${timeIsUp ? "Your time has expired." : "The chat session has ended."}</h2>
+      <p>Thank you. Please click the "Next" button below to continue with the survey.</p>
     `;
-    panel.querySelector(".code-box").textContent = code || "";
     chatCard.appendChild(panel);
-    const copyBtn = panel.querySelector("#copy-btn");
-    const copyHint = panel.querySelector("#copy-hint");
-    copyBtn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(code);
-        copyHint.textContent = "Code wurde kopiert.";
-      } catch (err) {
-        copyHint.textContent = "Bitte markieren Sie den Code manuell und kopieren Sie ihn.";
-      }
-    });
   }
 
   initSession();
