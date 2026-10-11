@@ -60,7 +60,7 @@
 
   async function timeUp() {
     if (finished) return;
-    addMessage("system-note", "Die Zeit für den Chat ist abgelaufen.");
+    addMessage("system-note", "The time allocated for the chat has expired.");
     finished = true;
     sendBtn.disabled = true;
     chatInput.disabled = true;
@@ -214,7 +214,7 @@
       showFinishScreen(data.code);
     } catch (err) {
       finishBtn.disabled = false;
-      addMessage("error", "Der Chat konnte nicht beendet werden. Bitte versuchen Sie es erneut.");
+      addMessage("error", "The chat could not be ended. Please try again.");
     }
   });
 
