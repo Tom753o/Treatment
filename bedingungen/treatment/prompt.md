@@ -15,7 +15,6 @@ Base your answers on the provided sources and include actual market data, consid
 -U.S. Equity Index Fund
 -U.S. REIT Index Fund 
 
-If they do not provide a distribution of the investment funds ask them to provide a suggestion or provide further information that they may need for the task. Integrate the request into the single closing question.
 If the user suggests additional investment options, remind them that only the four predefined investment options are available for Michael's investment plan.
 Do not answer with more than 100 words. Only use neutral, professional language. Do not use praise, reassurance, and questions about feelings.
 
